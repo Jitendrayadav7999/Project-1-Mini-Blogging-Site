@@ -2,45 +2,78 @@ const jwt = require("jsonwebtoken");
 const validator = require('validator')
 const AuthorModel = require("../modeles/authorModele.js")
 
+const checkvalidResBody = function (resBody) {
+    return Object.keys(resBody).length > 0
+}
+
+const isValid = function (value) {
+    if (typeof value === "undefined" || value === null) return false
+    if (typeof value === "string" && value.trim().length === 0) return false
+    return true
+}
+
+const validName = function (name) {
+    return (/^(?![\. ])[a-zA-Z\. ]+(?<! )$/.test(name))
+}
+
+const validPassword = function (pass) {
+    return (/^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%&])[a-zA-Z0-9@#$%&]{6,20}$/.test(pass))
+}
+
 // ======================================== Create Auther ===================================
 
 const createAuthor = async function (req, res) {
     try {
         let author = req.body
+        if (!checkvalidResBody(author)) {
+            return res.status(400).send({ status: false, message: "Invalide Request. Please Provide Auther Details" })
+        }
 
-        let { fname, lname, email, password, title } = author
+        let { fname, lname, title, email, password } = author  // Object Destructing
 
-        if (!(fname && lname && email && password && title)) {
-            return res.status(400).send({ status: false, msg: "Somthing missing in your body plz check all Field like- fname, lname, email etc" })
+        if (!isValid(fname)) {
+            return res.status(400).send({ status: false, message: "first name is required" })
+        }
+        if (!validName(fname)) return res.status(400).send({ status: false, message: "fname Should be Letters" })
+
+        if (!isValid(lname)) {
+            return res.status(400).send({ status: false, message: "last name is required" })
+        }
+        if (!validName(lname)) return res.status(400).send({ status: false, message: "lname Should be Letters" })
+
+
+        if (!isValid(title)) {
+            return res.status(400).send({ status: false, message: "title is required" })
         }
 
         if (title !== "Mr" && title !== "Mrs" && title !== "Miss") {
-            return res.status(400).send({ status: false, data: "Please Send The Valid title like:- Mr, Mrs, Miss" })
-        }
-        const validName = function (value) {
-            return (/^(?![\. ])[a-zA-Z\. ]+(?<! )$/.test(value))
+            return res.status(400).send({ status: false, message: "Please Send The Valid title like:- Mr, Mrs, Miss" })
         }
 
-        if (!validName(fname)) return res.status(400).send({ status: false, data: "fname Should be Alphabets" })
-        if (!validName(lname)) return res.status(400).send({ status: false, data: "lname Should be Alphapets" })
-
-        let validPassword = function (pass) {
-            return (/^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%&])[a-zA-Z0-9@#$%&]{6,20}$/.test(pass))
-        }
-        if (!validPassword(password)){
-            
-            return res.status(400).send({ status: false, data: " Password should be min 6 and max 20 character.It contains atleast--> 1 Uppercase letter, 1 Lowercase letter, 1 Number, 1 Special character"})
-        
-            
+        if (!isValid(email)) {
+            return res.status(400).send({ status: false, message: "email is required" })
         }
 
-        if (validator.isEmail(email)) {
-            let authorCreated = await AuthorModel.create(author)
-            res.status(201).send({ status: true, data: authorCreated })
-        } else {
+        if (!validator.isEmail(email)) {
             return res.status(400).send({ status: false, msg: " please Enter valid EmailId" })
         }
 
+        let isEmailAlreadyUsed = await AuthorModel.findOne({ email })
+
+        if (isEmailAlreadyUsed) {
+            return res.status(400).send({ status: false, msg: "Email is Already Registered" })
+        }
+
+        if (!isValid(password)) {
+            return res.status(400).send({ status: false, message: "Password is required" })
+        }
+
+        if (!validPassword(password)) {
+            return res.status(400).send({ status: false, message: " Password should be min 6 and max 20 character.It contains atleast--> 1 Uppercase letter, 1 Lowercase letter, 1 Number, 1 Special character" })
+        }
+
+        let authorCreated = await AuthorModel.create(author)
+        res.status(201).send({ status: true, message: "Auther created Successfully", data: authorCreated })
     }
     catch (error) {
         res.status(500).send({ status: false, msg: error.message })
@@ -51,33 +84,45 @@ const createAuthor = async function (req, res) {
 
 const loginAuther = async function (req, res) {
     try {
-        let { email, password } = req.body
-        if (Object.keys(req.body).length != 0) {
-            if (!validator.isEmail(email)) return res.status(400).send({ status: false, msg: " please Enter valid EmailId" })
-            let Auther = await AuthorModel.findOne({ email: email, password: password });
-            if (Auther) {
-                let token = jwt.sign(
-                    {
-                        AutherId: Auther._id.toString(),
-                        batch: "plutonium",
-                        organisation: "FunctionUp",
-                    },
-                    "Project-1-blogging-groupe-50"
-                );
-                res.setHeader("x-api-key", token);
-                res.status(201).send({ status: true, token: token });
-            } else {
-                return res.status(403).send({
-                    status: false,
-                    msg: "Email or password is not corerct",
-                });
-            }
-        } else {
-            return res.status(400).send({ msg: "Please Enter Email And password" })
+        let loginDetail = req.body
+        if (!checkvalidResBody(loginDetail)) {
+            return res.status(400).send({ status: false, message: "Invalide Request. Please Provide Auther Details" })
         }
+
+        let { email, password } = loginDetail
+
+        if (!isValid(email)) {
+            return res.status(400).send({ status: false, message: "email is required" })
+        }
+
+        if (!validator.isEmail(email)) {
+            return res.status(400).send({ status: false, msg: " please Enter valid EmailId" })
+        }
+
+        if (!isValid(password)) {
+            return res.status(400).send({ status: false, message: "Password is required" })
+        }
+
+        
+        let auther = await AuthorModel.findOne({ email, password })
+
+        if (!auther) {
+            return res.status(401).send({ status: false, message: "Email or Password Is wrong " })
+        }
+
+        let token = jwt.sign(
+            {
+                AutherId: auther._id.toString(),
+                batch: "plutonium",
+                organisation: "FunctionUp",
+            },
+            "Project-1-blogging-groupe-50"
+        );
+        res.setHeader("x-api-key", token);
+        res.status(201).send({ status: true,message:"Login successfull", token: token });
     } catch (error) {
         res.status(500).send({ msg: "Error", error: error.message })
     }
 }
 
-module.exports = {createAuthor, loginAuther} 
+module.exports = { createAuthor, loginAuther } 
