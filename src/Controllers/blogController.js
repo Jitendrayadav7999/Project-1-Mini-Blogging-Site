@@ -92,6 +92,10 @@ const createBlogs = async function (req, res) {
 const getBologs = async function (req, res) {
     try {
         let data = req.query
+        let authorId = req.query.authorId
+        if (authorId) {
+            if (!isValidObjectId(userId)) return res.status(400).send({ status: false, msg: "please enter valid author id " })
+        }
         
         const findData = { isDeleted: false, isPublished: true, ...data }
 
