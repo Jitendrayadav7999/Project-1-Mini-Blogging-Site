@@ -17,15 +17,17 @@ const tokenverify = function (req, res, next) {
     try {
         let token = req.headers["x-api-key"]
         if (token) {
-            let decodedToken = jwt.verify(token, "Project-1-blogging-groupe-50")
-            if(!decodedToken){
-                return res.status(401).send({ status: false, msg: "Invalid Token" }); 
+            jwt.verify(token, "Project-1-blogging-groupe-50", function (err, decoded) {
+            if (err) {
+                return res.status(401).send({ status: false, error:  err.message})
+            } else {
+                let auther = decoded.AutherId
+                req.AutherId = auther
+                next()
             }
-            let auther = decodedToken.AutherId
-            req.AutherId = auther
-            next();
+        });             
         } else {
-            return res.status(400).send({ status: false, msg: "token must be present" });
+            return res.status(400).send({ status: false, msg: "token must be present in header" });
         }
     } catch (error) {
         res.status(500).send({ status: false, error: error.message });
