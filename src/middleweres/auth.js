@@ -2,10 +2,6 @@ const jwt = require("jsonwebtoken");
 const mongoose = require('mongoose');
 const blogModel = require("../modeles/blogModel");
 
-const checkvalidparams = function (resBody) {
-    return Object.keys(resBody).length > 0
-}
-
 const isValidObjectId = function (objectid) {
     return mongoose.Types.ObjectId.isValid(objectid)
 }
@@ -41,18 +37,12 @@ const auth = async function (req, res, next) {
     try {
         let tokenAutherId = req.AutherId
         let blogid = req.params.blogId
-        if (!checkvalidparams(blogid)) {
-            return res.status(400).send({ status: false, message: "Please Provide Blog Id in Path Params" })
-        }
 
         if (!isValidObjectId(blogid)) {
             return res.status(400).send({ status: false, message: "Invalid Blog Id" })
         }
-
         let findauther = await blogModel.findOne({ _id: blogid, isDeleted: false })
-
         if (!findauther) return res.status(404).send({ status: false, msg: "This Blog is Already Deleted You Can Not Modify" })
-
         let Auther = findauther.authorId
         if (tokenAutherId == Auther) {
             req.blog = findauther

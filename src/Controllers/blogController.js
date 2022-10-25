@@ -30,57 +30,42 @@ const createBlogs = async function (req, res) {
         if (!isValid(title)) {
             return res.status(400).send({ status: false, message: "Blog title name is required" })
         }
-
         if (!isValid(body)) {
             return res.status(400).send({ status: false, message: "Blog body name is required" })
         }
-
         if (!isValid(category)) {
             return res.status(400).send({ status: false, message: "Blog category name is required" })
         }
-
+        if (tags) {
+            if (!Array.isArray(tags)) return res.status(400).send({status:false, message:"tags must be array"})
+            if(tags.length == 0) return res.status(400).send({status:false, message:"Put some Value in tags"})
+        }
+        if (subcategory) {
+            if (!Array.isArray(subcategory)) return res.status(400).send({status:false, message:"subcategory must be array"})
+            if(tags.length == 0) return res.status(400).send({status:false, message:"Put some Value in subcategory"})
+        }
         if (!isValid(authorId)) {
             return res.status(400).send({ status: false, message: "Auther Id is required" })
         }
-
         if (!isValidObjectId(authorId)) {
             return res.status(400).send({ status: false, message: "Invalid Auther Id" })
         }
-
-
         let auther = await autherModel.findById(authorId)
-
         if (!auther) {
             return res.status(401).send({ status: true, msg: " Auther is not valid" })
         }
 
         const blogData = {
             title,
-            body,                     //title, body, authorId, tags, category, subcategory
+            body,                   
             authorId,
             category,
+            tags,
+            subcategory,
             isPublished: isPublished ? isPublished : false,
             publishedAt: isPublished ? new Date() : null
         }
-
-        if (tags) {
-            if (Array.isArray(tags)) {
-                blogData['tags'] = [...tags]
-            }
-            if (Object.prototype.toString.call(tags === "[object String]")) {
-                blogData["tags"] = [tags]
-            }
-        }
-
-        if (subcategory) {
-            if (Array.isArray(subcategory)) {
-                blogData['subcategory'] = [...subcategory]
-            }
-            if (Object.prototype.toString.call(subcategory) === "[object String]") {
-                blogData["subcategory"] = [subcategory]
-            }
-        }
-        let createdBlogs = await blogModel.create(blog)
+        let createdBlogs = await blogModel.create(blogData)
         res.status(201).send({ status: true, message: "new blog created Successfull", data: createdBlogs })
     } catch (error) {
         res.status(500).send({ msg: "Error", error: error.message })
@@ -92,12 +77,12 @@ const createBlogs = async function (req, res) {
 const getBologs = async function (req, res) {
     try {
         let data = req.query
-        let authorId = req.query.authorId
+        let authorId = data.authorId
         if (authorId) {
-            if (!isValidObjectId(userId)) return res.status(400).send({ status: false, msg: "please enter valid author id " })
+            if (!isValidObjectId(authorId)) return res.status(400).send({ status: false, msg: "please enter valid author id " })
         }
         
-        const findData = { isDeleted: false, isPublished: true, ...data }
+        const findData = { isDeleted:false, isPublished:true, ...data }
 
         let getBolog = await blogModel.find(findData)
 
@@ -126,7 +111,7 @@ const updateBlogs = async function (req, res) {
 
         let blog = req.blog._id
         let { title, body, tags, subcategory, isPublished } = data
-
+      
         let updateBlogs = await blogModel.findByIdAndUpdate(
             blog,
             {
@@ -147,7 +132,7 @@ const updateBlogs = async function (req, res) {
 const deleteblog = async function (req, res) {
     try {
         let blogid = req.params.blogId               // blogId validation in auth File
-        let deletedblog = await blogModel.findByIdAndUpdate(blogid, { $set: { isDeleted: true, deletedAt: new Date } })
+        await blogModel.findByIdAndUpdate(blogid, { $set: { isDeleted: true, deletedAt: new Date } })
         return res.status(200).send({ status: true })
     } catch (error) {
         return res.status(500).send({ msg: "Error", error: error.message })
@@ -170,7 +155,7 @@ const deleteBloggByQuery = async function (req, res) {
         let autherId = findauther2.authorId
 
         if (tokenAutherId == autherId) {
-            let deleteblog = await blogModel.findOneAndUpdate(autherId, { $set: { isDeleted: true, deletedAt: new Date } })
+            await blogModel.findOneAndUpdate(autherId, { $set: { isDeleted: true, deletedAt: new Date } })
             return res.status(200).send({ status: true })
         } else {
             return res.status(403).send({ status: false, msg: "Sorry You are not authorised" })
